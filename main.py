@@ -1,7 +1,7 @@
 import argparse
 import os
-from keys import openai_api_key, pixabay_api_key, pexels_api_key
-from utils import ChatGPT, save, load
+from keys import google_api_key, pixabay_api_key, pexels_api_key
+from utils import Google, save, load
 from crawler.crawler import Crawler
 from author.author import Author
 from splitter.splitter import Splitter
@@ -9,37 +9,39 @@ from tts.tts import TTS
 from image.imager import Imager
 from editor.editor import Editor
 
+import argparse
+
 parser = argparse.ArgumentParser()
-parser.add_argument("keyword", type=str, help="사자성어 혹은 고사성어")
-parser.add_argument("--all", action="store_true", help="주어진 사자성어로부터 최종 동영상까지 모든 과정을 수행한다. (--crawler --author --tts --imager --editor 와 같다.)")
-parser.add_argument("--crawler", action="store_true", help="Crawler 과정을 수행한다: 사자성어 관련 정보 검색")
-parser.add_argument("--author", action="store_true", help="Author 과정을 수행한다: 정보를 보고 대본 작성")
-parser.add_argument("--tts", action="store_true", help="TTS 과정을 수행한다: 대본 음성 오디오 생성")
-parser.add_argument("--imager", action="store_true", help="Imager 과정을 수행한다: 대본에 맞는 이미지/동영상 검색/제작 (--imager-parser --image-constructor --imager-story --imager-generator와 같다.)")
-parser.add_argument("--imager-parser", action="store_true", help="Imager 중 parser 과정을 수행한다: 대본에 맞는 이미지/동영상 검색")
-parser.add_argument("--imager-constructor", action="store_true", help="Imager 중 constructor 과정을 수행한다: 대본에 맞는 한자 이미지 생성")
-parser.add_argument("--imager-story", action="store_true", help="Imager 중 generator 과정을 위한 사진 설명 생성")
-parser.add_argument("--imager-generator", action="store_true", help="Imager 중 generator 과정을 수행한다: 대본에 맞는 이미지 생성")
-parser.add_argument("--editor", action="store_true", help="Editor 과정을 수행한다: 동영상 최종 편집")
-parser.add_argument("--gpt-model", type=str, choices=["gpt-3.5-turbo"], default="gpt-3.5-turbo", help="ChatGPT 모델")
-parser.add_argument("--gpt-temp", type=float, default=0.7, help="ChatGPT 모델 창의성 (0.0 ~ 1.0)")
-#parser.add_argument("--sd-model", type=str, choices=["CompVis/stable-diffusion-v1-4", "runwayml/stable-diffusion-v1-5", "stabilityai/stable-diffusion-2-1"], default="CompVis/stable-diffusion-v1-4", help="Stable Diffusion 모델")
-parser.add_argument("--sd-model", type=str, choices=["stabilityai/stable-diffusion-xl-base-1.0"], default="stabilityai/stable-diffusion-xl-base-1.0", help="Stable Diffusion 모델")
-parser.add_argument("--sd-seed", type=int, default=-1, help="Stable Diffusion seed값 (-1일 경우 random seed)")
-parser.add_argument("--width", type=int, default=1080, help="영상의 가로 길이")
-parser.add_argument("--height", type=int, default=1920, help="영상의 세로 길이")
-parser.add_argument("--chalkboard", type=str, default="background.png", help="사자성어 소개 장면 배경. default 값 그대로 쓰는 것을 추천.")
-parser.add_argument("--font", type=str, default="NanumGothicExtraBold.ttf", help="자막 폰트 파일 위치")
-parser.add_argument("--text-chinese-size", type=int, default=305, help="사자성어 소개 장면 한자 크기")
-parser.add_argument("--text-korean-size", type=int, default=86, help="사자성어 소개 장면 훈음 크기")
-parser.add_argument("--text-chinese-color", type=str, default="black", help="사자성어 소개 장면 한자 색")
-parser.add_argument("--fps", type=int, default=30, help="영상의 FPS")
-parser.add_argument("--text-size", type=int, default=86, help="자막 크기")
-parser.add_argument("--text-color", type=str, default="white", help="자막 색깔")
-parser.add_argument("--text-stroke-width", type=int, default=5, help="자막 가장자리 두께")
-parser.add_argument("--text-stroke-color", type=str, default="black", help="자막 가장자리 색깔")
-parser.add_argument("--bgm", type=str, default="bgm.mp3", help="영상 배경음악")
-parser.add_argument("--bgm-vol", type=float, default=0.2, help="영상 배경음악 볼륨 조절 (0.0 ~ 1.0)")
+parser.add_argument("keyword", type=str, help="Four-character idiom or historical idiom")
+parser.add_argument("--all", action="store_true", help="Perform all processes from the given idiom to the final video. (Equivalent to --crawler --author --tts --imager --editor)")
+parser.add_argument("--crawler", action="store_true", help="Perform the Crawler process: Search for information related to the idiom")
+parser.add_argument("--author", action="store_true", help="Perform the Author process: Write a script based on the information")
+parser.add_argument("--tts", action="store_true", help="Perform the TTS process: Generate voice audio from the script")
+parser.add_argument("--imager", action="store_true", help="Perform the Imager process: Search/create images/videos matching the script (Equivalent to --imager-parser --image-constructor --imager-story --imager-generator)")
+parser.add_argument("--imager-parser", action="store_true", help="Perform the parser process within Imager: Search for images/videos matching the script")
+parser.add_argument("--imager-constructor", action="store_true", help="Perform the constructor process within Imager: Create Chinese character images matching the script")
+parser.add_argument("--imager-story", action="store_true", help="Generate photo descriptions for the generator process within Imager")
+parser.add_argument("--imager-generator", action="store_true", help="Perform the generator process within Imager: Generate images matching the script")
+parser.add_argument("--editor", action="store_true", help="Perform the Editor process: Final video editing")
+parser.add_argument("--gpt-model", type=str, choices=["gpt-3.5-turbo"], default="gpt-3.5-turbo", help="ChatGPT model")
+parser.add_argument("--gpt-temp", type=float, default=0.7, help="ChatGPT model creativity (0.0 ~ 1.0)")
+#parser.add_argument("--sd-model", type=str, choices=["CompVis/stable-diffusion-v1-4", "runwayml/stable-diffusion-v1-5", "stabilityai/stable-diffusion-2-1"], default="CompVis/stable-diffusion-v1-4", help="Stable Diffusion model")
+parser.add_argument("--sd-model", type=str, choices=["stabilityai/stable-diffusion-xl-base-1.0"], default="stabilityai/stable-diffusion-xl-base-1.0", help="Stable Diffusion model")
+parser.add_argument("--sd-seed", type=int, default=-1, help="Stable Diffusion seed value (-1 for random seed)")
+parser.add_argument("--width", type=int, default=1080, help="Video width")
+parser.add_argument("--height", type=int, default=1920, help="Video height")
+parser.add_argument("--chalkboard", type=str, default="background.png", help="Background for the idiom introduction scene. It is recommended to use the default value.")
+parser.add_argument("--font", type=str, default="NanumGothicExtraBold.ttf", help="Subtitle font file location")
+parser.add_argument("--text-chinese-size", type=int, default=305, help="Chinese character size in the idiom introduction scene")
+parser.add_argument("--text-korean-size", type=int, default=86, help="Korean pronunciation size in the idiom introduction scene")
+parser.add_argument("--text-chinese-color", type=str, default="black", help="Chinese character color in the idiom introduction scene")
+parser.add_argument("--fps", type=int, default=30, help="Video FPS")
+parser.add_argument("--text-size", type=int, default=86, help="Subtitle size")
+parser.add_argument("--text-color", type=str, default="white", help="Subtitle color")
+parser.add_argument("--text-stroke-width", type=int, default=5, help="Subtitle stroke width")
+parser.add_argument("--text-stroke-color", type=str, default="black", help="Subtitle stroke color")
+parser.add_argument("--bgm", type=str, default="bgm.mp3", help="Background music for the video")
+parser.add_argument("--bgm-vol", type=float, default=0.2, help="Background music volume adjustment (0.0 ~ 1.0)")
 args = parser.parse_args()
 
 if __name__ == "__main__":
